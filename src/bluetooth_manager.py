@@ -326,7 +326,7 @@ class BluetoothManager:
             logging.error(f"Failed to setup signal handlers: {e}")
     
     def _on_properties_changed(self, interface: str, changed: dict, 
-                               invalidated: list, path: str = None) -> None:
+                               invalidated: list = None, path: str = None) -> None:
         """Handle property changes on Bluetooth devices."""
         if interface != DEVICE_INTERFACE:
             return
