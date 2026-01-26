@@ -291,8 +291,9 @@ class BluetoothManager:
                 logging.warning("Agent registration failed, pairing may not work")
             
             # Register HFP/HSP profiles
-            if not self._register_profiles():
-                logging.warning("Profile registration failed")
+            # Note: This may fail if oFono or PulseAudio already registered these UUIDs
+            # In that case, the application can still work with the existing profile handlers
+            self._register_profiles()
             
             # Setup signal handlers for device events
             self._setup_signal_handlers()
@@ -426,6 +427,20 @@ class BluetoothManager:
         except dbus.exceptions.DBusException as e:
             logging.error(f"Failed to configure adapter: {e}")
     
+    def _unregister_profile_safe(self, profile_manager, path: str) -> None:
+        """
+        Safely unregister a profile, ignoring errors if not registered.
+        
+        Args:
+            profile_manager: D-Bus ProfileManager interface
+            path: Profile object path to unregister
+        """
+        try:
+            profile_manager.UnregisterProfile(dbus.ObjectPath(path))
+            logging.debug(f"Unregistered existing profile at {path}")
+        except dbus.exceptions.DBusException:
+            pass  # Profile wasn't registered, that's fine
+    
     def _register_profiles(self) -> bool:
         """
         Register HFP/HSP profiles with BlueZ.
@@ -439,6 +454,13 @@ class BluetoothManager:
                 self.bus.get_object(BLUEZ_SERVICE, '/org/bluez'),
                 PROFILE_MANAGER_INTERFACE
             )
+            
+            # First, try to unregister any existing profiles at our paths
+            # This handles the case where a previous run didn't clean up
+            self._unregister_profile_safe(profile_manager, HFP_PROFILE_PATH)
+            self._unregister_profile_safe(profile_manager, HSP_PROFILE_PATH)
+            if self.enable_a2dp:
+                self._unregister_profile_safe(profile_manager, A2DP_PROFILE_PATH)
             
             # Create HFP profile handler
             self.hfp_profile = HFPProfile(
@@ -457,13 +479,25 @@ class BluetoothManager:
                 "Version": dbus.UInt16(0x0108),  # HFP 1.8
             }
             
+            hfp_registered = False
+            hsp_registered = False
+            
             # Register HFP profile
-            profile_manager.RegisterProfile(
-                dbus.ObjectPath(HFP_PROFILE_PATH),
-                self.HFP_UUID,
-                hfp_options
-            )
-            logging.info("HFP profile registered")
+            try:
+                profile_manager.RegisterProfile(
+                    dbus.ObjectPath(HFP_PROFILE_PATH),
+                    self.HFP_UUID,
+                    hfp_options
+                )
+                logging.info("HFP profile registered")
+                hfp_registered = True
+            except dbus.exceptions.DBusException as e:
+                error_name = e.get_dbus_name() if hasattr(e, 'get_dbus_name') else str(e)
+                if "AlreadyExists" in str(e) or "UUID already registered" in str(e):
+                    logging.warning("HFP UUID already registered by another service (e.g., oFono/PulseAudio)")
+                    logging.info("Will use existing HFP profile - ensure oFono or pulseaudio-bluetooth is configured")
+                else:
+                    logging.error(f"HFP registration failed: {e}")
             
             # Also register HSP for fallback
             hsp_options = {
@@ -479,8 +513,12 @@ class BluetoothManager:
                     hsp_options
                 )
                 logging.info("HSP profile registered")
+                hsp_registered = True
             except dbus.exceptions.DBusException as e:
-                logging.warning(f"HSP registration failed (non-critical): {e}")
+                if "AlreadyExists" in str(e) or "UUID already registered" in str(e):
+                    logging.warning("HSP UUID already registered by another service")
+                else:
+                    logging.warning(f"HSP registration failed (non-critical): {e}")
             
             # Register A2DP if enabled
             if self.enable_a2dp:
@@ -498,7 +536,16 @@ class BluetoothManager:
                 except dbus.exceptions.DBusException as e:
                     logging.warning(f"A2DP registration failed: {e}")
             
+            # Mark as registered if at least one profile was registered
+            # or if they're handled by another service
             self.profiles_registered = True
+            
+            if not hfp_registered and not hsp_registered:
+                logging.warning(
+                    "No HFP/HSP profiles registered directly. "
+                    "Bluetooth hands-free may still work via oFono/PulseAudio."
+                )
+            
             return True
             
         except dbus.exceptions.DBusException as e:

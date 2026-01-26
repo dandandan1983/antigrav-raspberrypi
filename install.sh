@@ -122,6 +122,9 @@ sudo usermod -a -G bluetooth $USER
 # Enable GPIO access
 sudo usermod -a -G gpio $USER
 
+sudo systemctl stop ofono
+sudo systemctl disable ofono
+
 echo ""
 echo "=========================================="
 echo "Installation Complete!"
