@@ -451,3 +451,12 @@ Created by [Your Name] - Based on [Technical Specification](ТЗ_Raspberry_Pi_Ha
 **Date:** 2025-11-19  
 **Platform:** Raspberry Pi 4 Model B  
 **Python:** 3.9+
+
+
+```bash
+rm -rf venv
+python3 -m venv --system-site-packages venv
+source venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```

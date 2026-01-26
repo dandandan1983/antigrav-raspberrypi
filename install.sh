@@ -86,7 +86,7 @@ sudo systemctl enable bluetooth
 echo ""
 echo "Step 9: Configuring audio..."
 # Add user to audio group
-sudo usermod -a -G audio $USER
+sudo usermod -a -G audio,bluetooth,gpio $USER
 
 # Configure PulseAudio for Bluetooth
 if [ ! -d ~/.config/pulse ]; then
