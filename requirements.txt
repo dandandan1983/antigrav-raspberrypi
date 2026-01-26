@@ -1,5 +1,5 @@
 # Core Bluetooth and D-Bus libraries
-pybluez>=0.23
+# pybluez - use system package python3-bluez instead (installed via apt)
 PyGObject>=3.40.0
 dbus-python>=1.2.18
 pydbus>=0.6.0
