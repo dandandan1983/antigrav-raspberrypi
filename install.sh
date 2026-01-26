@@ -47,7 +47,9 @@ sudo apt install -y \
     pulseaudio \
     pulseaudio-module-bluetooth \
     alsa-utils \
-    libasound2-dev
+    libasound2-dev \
+    libspeexdsp-dev \
+    swig
 
 echo ""
 echo "Step 4: Installing Python and development tools..."
