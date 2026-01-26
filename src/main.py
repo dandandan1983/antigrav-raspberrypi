@@ -14,6 +14,7 @@ import logging
 import signal
 import sys
 import os
+import atexit
 from pathlib import Path
 from gi.repository import GLib
 
@@ -288,6 +289,9 @@ class HandsFreeHeadset:
         """
         logging.info("Initializing application...")
         
+        # Register cleanup handler for unexpected exits
+        atexit.register(self._cleanup_on_exit)
+        
         # Initialize Bluetooth
         if not self.bluetooth.initialize():
             logging.error("Failed to initialize Bluetooth")
@@ -296,16 +300,22 @@ class HandsFreeHeadset:
         # Initialize audio
         if not self.audio.initialize():
             logging.error("Failed to initialize audio")
+            self.bluetooth.cleanup()
             return False
         
         # Initialize call manager
         if not self.call_manager.initialize():
             logging.error("Failed to initialize call manager")
+            self.audio.cleanup()
+            self.bluetooth.cleanup()
             return False
         
         # Initialize GPIO
         if not self.gpio.initialize():
             logging.error("Failed to initialize GPIO")
+            self.call_manager.cleanup()
+            self.audio.cleanup()
+            self.bluetooth.cleanup()
             return False
         
         # Setup callbacks
@@ -346,6 +356,26 @@ class HandsFreeHeadset:
         logging.info(f"Received signal {sig}")
         self.shutdown()
     
+    def _cleanup_on_exit(self) -> None:
+        """Cleanup handler called on unexpected exit via atexit."""
+        logging.info("Running atexit cleanup...")
+        try:
+            self.gpio.cleanup()
+        except Exception as e:
+            logging.debug(f"GPIO cleanup on exit: {e}")
+        try:
+            self.call_manager.cleanup()
+        except Exception as e:
+            logging.debug(f"Call manager cleanup on exit: {e}")
+        try:
+            self.audio.cleanup()
+        except Exception as e:
+            logging.debug(f"Audio cleanup on exit: {e}")
+        try:
+            self.bluetooth.cleanup()
+        except Exception as e:
+            logging.debug(f"Bluetooth cleanup on exit: {e}")
+    
     def shutdown(self) -> None:
         """Shutdown the application."""
         logging.info("Shutting down application...")
@@ -359,6 +389,12 @@ class HandsFreeHeadset:
         self.audio.cleanup()
         self.bluetooth.cleanup()
         self.gpio.cleanup()
+        
+        # Unregister atexit handler to avoid double cleanup
+        try:
+            atexit.unregister(self._cleanup_on_exit)
+        except Exception:
+            pass
         
         logging.info("Application shutdown complete")
         sys.exit(0)

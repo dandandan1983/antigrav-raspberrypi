@@ -18,10 +18,24 @@ import time
 try:
     import RPi.GPIO as GPIO
     from gpiozero import Button, LED
+    from gpiozero.pins.rpigpio import RPiGPIOFactory
+    from gpiozero import Device
     GPIO_AVAILABLE = True
 except (ImportError, RuntimeError):
     GPIO_AVAILABLE = False
     logging.warning("GPIO libraries not available (not running on Raspberry Pi)")
+
+
+def force_gpio_cleanup():
+    """Force cleanup of all GPIO resources from previous runs."""
+    if not GPIO_AVAILABLE:
+        return
+    try:
+        GPIO.setmode(GPIO.BCM)
+        GPIO.cleanup()
+        logging.info("Forced GPIO cleanup completed")
+    except Exception as e:
+        logging.debug(f"GPIO cleanup (may be normal): {e}")
 
 
 class LEDState(Enum):
@@ -99,6 +113,8 @@ class GPIOController:
             return True  # Return True for testing on non-Pi systems
         
         try:
+            # Force cleanup of any previously held GPIO resources
+            force_gpio_cleanup()
             # Initialize buttons with pull-up resistors
             self.button_answer = Button(
                 self.button_answer_pin,
@@ -260,10 +276,21 @@ class GPIOController:
             if self.button_vol_down:
                 self.button_vol_down.close()
             
+            # Final cleanup of RPi.GPIO
+            try:
+                GPIO.cleanup()
+            except Exception:
+                pass
+            
             logging.info("GPIO cleaned up")
             
         except Exception as e:
             logging.error(f"Error during GPIO cleanup: {e}")
+            # Try to force cleanup even on error
+            try:
+                GPIO.cleanup()
+            except Exception:
+                pass
 
 
 if __name__ == "__main__":
