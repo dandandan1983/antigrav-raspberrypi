@@ -1,0 +1,27 @@
+[Unit]
+Description=Raspberry Pi Hands-Free Bluetooth Headset
+Documentation=https://github.com/yourusername/rpi-handsfree
+After=bluetooth.target sound.target network.target
+Requires=bluetooth.target
+Wants=sound.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/rpi-handsfree
+ExecStart=/usr/bin/python3 /home/pi/rpi-handsfree/src/main.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Environment
+Environment="PYTHONUNBUFFERED=1"
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
