@@ -14,6 +14,7 @@ import logging
 from typing import Optional, Callable
 from enum import Enum
 import time
+import warnings
 
 try:
     import RPi.GPIO as GPIO
@@ -31,8 +32,24 @@ def force_gpio_cleanup():
     if not GPIO_AVAILABLE:
         return
     try:
-        GPIO.setmode(GPIO.BCM)
-        GPIO.cleanup()
+        # Close any gpiozero factory pins
+        if Device.pin_factory is not None:
+            Device.pin_factory.close()
+            Device.pin_factory = None
+        
+        # Suppress the "nothing to clean up" warning
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            try:
+                GPIO.setwarnings(False)
+                GPIO.setmode(GPIO.BCM)
+                GPIO.cleanup()
+            except Exception:
+                pass
+        
+        # Reset gpiozero factory
+        Device.pin_factory = RPiGPIOFactory()
+        
         logging.info("Forced GPIO cleanup completed")
     except Exception as e:
         logging.debug(f"GPIO cleanup (may be normal): {e}")
@@ -261,36 +278,47 @@ class GPIOController:
             if self.led_status:
                 self.led_status.off()
                 self.led_status.close()
+                self.led_status = None
             
             if self.led_call:
                 self.led_call.off()
                 self.led_call.close()
+                self.led_call = None
             
             # Close buttons
             if self.button_answer:
                 self.button_answer.close()
+                self.button_answer = None
             if self.button_reject:
                 self.button_reject.close()
+                self.button_reject = None
             if self.button_vol_up:
                 self.button_vol_up.close()
+                self.button_vol_up = None
             if self.button_vol_down:
                 self.button_vol_down.close()
+                self.button_vol_down = None
             
-            # Final cleanup of RPi.GPIO
-            try:
-                GPIO.cleanup()
-            except Exception:
-                pass
+            # Final cleanup of RPi.GPIO (suppress warnings)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                GPIO.setwarnings(False)
+                try:
+                    GPIO.cleanup()
+                except Exception:
+                    pass
             
             logging.info("GPIO cleaned up")
             
         except Exception as e:
             logging.error(f"Error during GPIO cleanup: {e}")
             # Try to force cleanup even on error
-            try:
-                GPIO.cleanup()
-            except Exception:
-                pass
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                try:
+                    GPIO.cleanup()
+                except Exception:
+                    pass
 
 
 if __name__ == "__main__":
