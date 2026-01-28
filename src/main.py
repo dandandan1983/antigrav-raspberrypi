@@ -310,13 +310,9 @@ class HandsFreeHeadset:
             self.bluetooth.cleanup()
             return False
         
-        # Initialize GPIO
+        # Initialize GPIO (non-fatal - system works without physical buttons/LEDs)
         if not self.gpio.initialize():
-            logging.error("Failed to initialize GPIO")
-            self.call_manager.cleanup()
-            self.audio.cleanup()
-            self.bluetooth.cleanup()
-            return False
+            logging.warning("GPIO initialization failed - continuing without hardware buttons/LEDs")
         
         # Setup callbacks
         self._setup_callbacks()

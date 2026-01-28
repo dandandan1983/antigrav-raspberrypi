@@ -32,23 +32,28 @@ def force_gpio_cleanup():
     if not GPIO_AVAILABLE:
         return
     try:
+        # Suppress all GPIO warnings
+        GPIO.setwarnings(False)
+        
         # Close any gpiozero factory pins
         if Device.pin_factory is not None:
-            Device.pin_factory.close()
+            try:
+                Device.pin_factory.close()
+            except Exception:
+                pass
             Device.pin_factory = None
         
-        # Suppress the "nothing to clean up" warning
+        # Suppress the "nothing to clean up" warning and set mode before cleanup
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             try:
-                GPIO.setwarnings(False)
+                # Set mode first, then cleanup
                 GPIO.setmode(GPIO.BCM)
                 GPIO.cleanup()
             except Exception:
                 pass
         
-        # Reset gpiozero factory
-        Device.pin_factory = RPiGPIOFactory()
+        # Do NOT pre-create factory - let gpiozero create it on demand
         
         logging.info("Forced GPIO cleanup completed")
     except Exception as e:
@@ -132,38 +137,70 @@ class GPIOController:
         try:
             # Force cleanup of any previously held GPIO resources
             force_gpio_cleanup()
-            # Initialize buttons with pull-up resistors
-            self.button_answer = Button(
-                self.button_answer_pin,
-                pull_up=True,
-                bounce_time=self.debounce_time
-            )
-            self.button_answer.when_pressed = self._handle_answer_pressed
             
-            self.button_reject = Button(
-                self.button_reject_pin,
-                pull_up=True,
-                bounce_time=self.debounce_time
-            )
-            self.button_reject.when_pressed = self._handle_reject_pressed
+            # Suppress GPIO warnings during initialization
+            GPIO.setwarnings(False)
             
-            self.button_vol_up = Button(
-                self.button_vol_up_pin,
-                pull_up=True,
-                bounce_time=self.debounce_time
-            )
-            self.button_vol_up.when_pressed = self._handle_vol_up_pressed
+            initialization_errors = []
             
-            self.button_vol_down = Button(
-                self.button_vol_down_pin,
-                pull_up=True,
-                bounce_time=self.debounce_time
-            )
-            self.button_vol_down.when_pressed = self._handle_vol_down_pressed
+            # Initialize buttons with pull-up resistors - each in try/except
+            try:
+                self.button_answer = Button(
+                    self.button_answer_pin,
+                    pull_up=True,
+                    bounce_time=self.debounce_time
+                )
+                self.button_answer.when_pressed = self._handle_answer_pressed
+            except Exception as e:
+                initialization_errors.append(f"Answer button (pin {self.button_answer_pin}): {e}")
+            
+            try:
+                self.button_reject = Button(
+                    self.button_reject_pin,
+                    pull_up=True,
+                    bounce_time=self.debounce_time
+                )
+                self.button_reject.when_pressed = self._handle_reject_pressed
+            except Exception as e:
+                initialization_errors.append(f"Reject button (pin {self.button_reject_pin}): {e}")
+            
+            try:
+                self.button_vol_up = Button(
+                    self.button_vol_up_pin,
+                    pull_up=True,
+                    bounce_time=self.debounce_time
+                )
+                self.button_vol_up.when_pressed = self._handle_vol_up_pressed
+            except Exception as e:
+                initialization_errors.append(f"Volume up button (pin {self.button_vol_up_pin}): {e}")
+            
+            try:
+                self.button_vol_down = Button(
+                    self.button_vol_down_pin,
+                    pull_up=True,
+                    bounce_time=self.debounce_time
+                )
+                self.button_vol_down.when_pressed = self._handle_vol_down_pressed
+            except Exception as e:
+                initialization_errors.append(f"Volume down button (pin {self.button_vol_down_pin}): {e}")
             
             # Initialize LEDs
-            self.led_status = LED(self.led_status_pin)
-            self.led_call = LED(self.led_call_pin)
+            try:
+                self.led_status = LED(self.led_status_pin)
+            except Exception as e:
+                initialization_errors.append(f"Status LED (pin {self.led_status_pin}): {e}")
+            
+            try:
+                self.led_call = LED(self.led_call_pin)
+            except Exception as e:
+                initialization_errors.append(f"Call LED (pin {self.led_call_pin}): {e}")
+            
+            if initialization_errors:
+                for err in initialization_errors:
+                    logging.warning(f"GPIO init warning: {err}")
+                logging.warning("Some GPIO components failed to initialize - system will work without them")
+                # Return True to allow app to continue - GPIO is optional
+                return True
             
             logging.info("GPIO initialized successfully")
             return True
@@ -274,36 +311,49 @@ class GPIOController:
             return
         
         try:
+            # Suppress GPIO warnings
+            GPIO.setwarnings(False)
+            
             # Turn off LEDs
             if self.led_status:
-                self.led_status.off()
-                self.led_status.close()
+                try:
+                    self.led_status.off()
+                    self.led_status.close()
+                except Exception:
+                    pass
                 self.led_status = None
             
             if self.led_call:
-                self.led_call.off()
-                self.led_call.close()
+                try:
+                    self.led_call.off()
+                    self.led_call.close()
+                except Exception:
+                    pass
                 self.led_call = None
             
             # Close buttons
-            if self.button_answer:
-                self.button_answer.close()
-                self.button_answer = None
-            if self.button_reject:
-                self.button_reject.close()
-                self.button_reject = None
-            if self.button_vol_up:
-                self.button_vol_up.close()
-                self.button_vol_up = None
-            if self.button_vol_down:
-                self.button_vol_down.close()
-                self.button_vol_down = None
+            for btn_name in ['button_answer', 'button_reject', 'button_vol_up', 'button_vol_down']:
+                btn = getattr(self, btn_name, None)
+                if btn:
+                    try:
+                        btn.close()
+                    except Exception:
+                        pass
+                    setattr(self, btn_name, None)
             
-            # Final cleanup of RPi.GPIO (suppress warnings)
+            # Close gpiozero factory to prevent atexit errors
+            if Device.pin_factory is not None:
+                try:
+                    Device.pin_factory.close()
+                except Exception:
+                    pass
+                Device.pin_factory = None
+            
+            # Final cleanup of RPi.GPIO (set mode first to prevent errors)
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                GPIO.setwarnings(False)
                 try:
+                    GPIO.setmode(GPIO.BCM)
                     GPIO.cleanup()
                 except Exception:
                     pass
@@ -316,6 +366,7 @@ class GPIOController:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 try:
+                    GPIO.setmode(GPIO.BCM)
                     GPIO.cleanup()
                 except Exception:
                     pass
