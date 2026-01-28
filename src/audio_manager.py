@@ -293,51 +293,69 @@ class AudioManager:
         new_volume = max(0, self.speaker_volume - step)
         return self.set_speaker_volume(new_volume)
     
-    def route_to_bluetooth(self, device_address: str) -> bool:
+    def route_to_bluetooth(self, device_address: str, max_retries: int = 10, 
+                           retry_delay: float = 1.0) -> bool:
         """
         Route audio to Bluetooth device using PulseAudio.
         
         Args:
             device_address: Bluetooth device MAC address
+            max_retries: Maximum number of retries to find the sink
+            retry_delay: Delay between retries in seconds
             
         Returns:
             True if successful
         """
-        try:
-            # Find Bluetooth sink
-            result = subprocess.run(
-                ['pactl', 'list', 'short', 'sinks'],
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            
-            bt_sink = None
-            for line in result.stdout.split('\n'):
-                if 'bluez' in line.lower() and device_address.replace(':', '_') in line:
-                    bt_sink = line.split()[1]
-                    break
-            
-            if not bt_sink:
-                logging.warning(f"Bluetooth sink not found for {device_address}")
+        address_normalized = device_address.replace(':', '_').lower()
+        
+        for attempt in range(max_retries):
+            try:
+                # Find Bluetooth sink
+                result = subprocess.run(
+                    ['pactl', 'list', 'short', 'sinks'],
+                    capture_output=True,
+                    text=True,
+                    check=True
+                )
+                
+                bt_sink = None
+                for line in result.stdout.split('\n'):
+                    line_lower = line.lower()
+                    # Check for bluez sink with matching address
+                    if 'bluez' in line_lower and address_normalized in line_lower:
+                        bt_sink = line.split()[1]
+                        break
+                    # Also check for bluetooth sink without bluez prefix
+                    if 'bluetooth' in line_lower and address_normalized in line_lower:
+                        bt_sink = line.split()[1]
+                        break
+                
+                if bt_sink:
+                    # Set as default sink
+                    subprocess.run(
+                        ['pactl', 'set-default-sink', bt_sink],
+                        check=True,
+                        capture_output=True
+                    )
+                    
+                    logging.info(f"Audio routed to Bluetooth device: {device_address} (sink: {bt_sink})")
+                    return True
+                
+                if attempt < max_retries - 1:
+                    logging.debug(f"Bluetooth sink not found, retrying ({attempt + 1}/{max_retries})...")
+                    time.sleep(retry_delay)
+                    
+            except subprocess.CalledProcessError as e:
+                logging.error(f"Failed to route audio to Bluetooth: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+            except FileNotFoundError:
+                logging.warning("pactl not found, using ALSA directly")
                 return False
-            
-            # Set as default sink
-            subprocess.run(
-                ['pactl', 'set-default-sink', bt_sink],
-                check=True,
-                capture_output=True
-            )
-            
-            logging.info(f"Audio routed to Bluetooth device: {device_address}")
-            return True
-            
-        except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to route audio to Bluetooth: {e}")
-            return False
-        except FileNotFoundError:
-            logging.warning("pactl not found, using ALSA directly")
-            return False
+        
+        logging.warning(f"Bluetooth sink not found for {device_address} after {max_retries} attempts")
+        logging.info("Tip: Ensure pulseaudio-module-bluetooth is installed and PulseAudio is running")
+        return False
     
     def set_profile_hfp(self, card_name: str) -> bool:
         """

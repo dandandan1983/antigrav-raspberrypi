@@ -15,6 +15,7 @@ import signal
 import sys
 import os
 import atexit
+import threading
 from pathlib import Path
 from gi.repository import GLib
 
@@ -161,8 +162,12 @@ class HandsFreeHeadset:
         # Update LED
         self.gpio.indicate_connected()
         
-        # Configure audio routing
-        self.audio.route_to_bluetooth(device_address)
+        # Configure audio routing in background thread (sink may take time to appear)
+        threading.Thread(
+            target=self.audio.route_to_bluetooth,
+            args=(device_address,),
+            daemon=True
+        ).start()
     
     def _handle_hfp_connected(self, device_address: str, fd: int) -> None:
         """Handle HFP connection with RFCOMM file descriptor."""
@@ -173,8 +178,12 @@ class HandsFreeHeadset:
         # Update LED
         self.gpio.indicate_connected()
         
-        # Configure audio routing
-        self.audio.route_to_bluetooth(device_address)
+        # Configure audio routing in background thread (sink may take time to appear)
+        threading.Thread(
+            target=self.audio.route_to_bluetooth,
+            args=(device_address,),
+            daemon=True
+        ).start()
         
         # Connect CallManager to the RFCOMM channel via file descriptor
         self.call_manager.connect_rfcomm_fd(fd)
