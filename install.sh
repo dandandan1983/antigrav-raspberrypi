@@ -80,7 +80,12 @@ sudo apt install -y \
 
 echo ""
 echo "Step 6: Creating virtual environment..."
-python3 -m venv --system-site-packages venv
+if [ -d venv ]; then
+    echo "Virtual environment already exists, activating..."
+else
+    echo "Creating new virtual environment..."
+    python3 -m venv --system-site-packages venv
+fi
 source venv/bin/activate
 
 echo ""
