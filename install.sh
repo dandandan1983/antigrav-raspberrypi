@@ -128,6 +128,11 @@ context.properties = {
 }
 EOF
 
+# Ensure the media-session.d directory exists
+if [ ! -d ~/.config/pipewire/media-session.d ]; then
+    mkdir -p ~/.config/pipewire/media-session.d
+fi
+
 cat > ~/.config/pipewire/media-session.d/bluez-monitor.conf << EOF
 bluez-monitor.properties = {
     properties = {
