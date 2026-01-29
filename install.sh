@@ -50,7 +50,8 @@ sudo apt install -y \
     alsa-utils \
     libasound2-dev \
     libspeexdsp-dev \
-    swig
+    swig \
+    libffi-dev
 
 # Enable PipeWire services
 echo "Enabling PipeWire services..."
