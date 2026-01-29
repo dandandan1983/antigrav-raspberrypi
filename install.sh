@@ -38,18 +38,29 @@ sudo apt install -y \
     bluez \
     bluez-tools \
     bluez-firmware \
-    python3-bluez \
-    ofono
+    python3-bluez
 
 echo ""
-echo "Step 3: Installing audio packages..."
+echo "Step 3: Installing PipeWire and audio packages..."
 sudo apt install -y \
-    pulseaudio \
-    pulseaudio-module-bluetooth \
+    pipewire \
+    pipewire-audio-client-libraries \
+    libspa-0.2-bluetooth \
+    wireplumber \
     alsa-utils \
     libasound2-dev \
     libspeexdsp-dev \
     swig
+
+# Enable PipeWire services
+echo "Enabling PipeWire services..."
+systemctl --user enable pipewire pipewire-pulse wireplumber
+systemctl --user start pipewire pipewire-pulse wireplumber
+
+# Disable conflicting services
+echo "Disabling conflicting services (PulseAudio and oFono)..."
+sudo systemctl stop pulseaudio ofono || true
+sudo systemctl disable pulseaudio ofono || true
 
 echo ""
 echo "Step 4: Installing Python and development tools..."
@@ -88,17 +99,39 @@ echo "Step 9: Configuring audio..."
 # Add user to audio group
 sudo usermod -a -G audio,bluetooth,gpio $USER
 
-# Configure PulseAudio for Bluetooth
-if [ ! -d ~/.config/pulse ]; then
-    mkdir -p ~/.config/pulse
+# Configure PipeWire for Bluetooth HFP
+if [ ! -d ~/.config/pipewire ]; then
+    mkdir -p ~/.config/pipewire
 fi
 
-# Enable Bluetooth auto-switch
-cat >> ~/.config/pulse/default.pa << EOF
-
-# Auto-switch to Bluetooth when connected
-load-module module-switch-on-connect
+cat > ~/.config/pipewire/pipewire.conf << EOF
+context.properties = {
+    default.clock.rate          = 48000
+    default.clock.allowed-rates = [ 48000 ]
+    default.clock.quantum       = 1024
+    default.clock.min-quantum   = 32
+    default.clock.max-quantum   = 2048
+    default.video.width         = 640
+    default.video.height        = 480
+    default.video.rate.num      = 25
+    default.video.rate.denom    = 1
+    default.quantum             = 1024
+    default.rate                = 48000
+    default.channels            = 2
+    default.position            = [ FL FR ]
+}
 EOF
+
+cat > ~/.config/pipewire/media-session.d/bluez-monitor.conf << EOF
+bluez-monitor.properties = {
+    properties = {
+        bluez5.enable-hfp = true
+        bluez5.enable-hsp = false
+        bluez5.enable-a2dp = true
+    }
+}
+EOF
+
 
 echo ""
 echo "Step 10: Setting up systemd service..."
@@ -121,9 +154,6 @@ sudo usermod -a -G bluetooth $USER
 
 # Enable GPIO access
 sudo usermod -a -G gpio $USER
-
-sudo systemctl stop ofono
-sudo systemctl disable ofono
 
 echo ""
 echo "=========================================="
