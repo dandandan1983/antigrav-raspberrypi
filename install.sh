@@ -166,6 +166,9 @@ sudo usermod -a -G bluetooth $USER
 # Enable GPIO access
 sudo usermod -a -G gpio $USER
 
+echo "Enabling Bluetooth discoverable mode..."
+bluetoothctl discoverable on
+
 echo ""
 echo "=========================================="
 echo "Installation Complete!"
