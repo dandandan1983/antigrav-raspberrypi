@@ -16,10 +16,13 @@ if command -v apt-get >/dev/null 2>&1; then
     echo "Installing system packages for Bluetooth and build dependencies"
     sudo apt-get update
     sudo apt-get install -y python3-bluez libbluetooth-dev bluetooth bluez \
-        build-essential pkg-config libglib2.0-dev || true
+        build-essential pkg-config libglib2.0-dev python3-dev libatlas-base-dev \
+        libblas-dev gfortran || true
 fi
 
 if [ -f "$ROOT_DIR/requirements.txt" ]; then
+    # ensure packaging tools are up-to-date to provide build backends
+    pip install --upgrade pip setuptools wheel
     pip install -r "$ROOT_DIR/requirements.txt"
 fi
 
