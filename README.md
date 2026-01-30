@@ -6,7 +6,7 @@ A full-featured Bluetooth hands-free headset implementation using Raspberry Pi 4
 
 - ✅ **Bluetooth Connectivity** - HSP/HFP profile support via BlueZ
 - ✅ **Call Management** - Answer, reject, and hang up calls via HFP AT commands
-- ✅ **Audio I/O** - Microphone capture and speaker output using ALSA
+- ✅ **Audio I/O** - Microphone capture and speaker output using PulseAudio (or PipeWire)
 - ✅ **Volume Control** - Bidirectional volume synchronization with phone
 - ✅ **GPIO Controls** - Physical buttons for call and volume control
 - ✅ **LED Indicators** - Visual feedback for connection and call status
@@ -133,16 +133,23 @@ A full-featured Bluetooth hands-free headset implementation using Raspberry Pi 4
 
 **Testing Commands:**
 ```bash
-# List audio devices
-aplay -l    # Playback devices  
-arecord -l  # Recording devices
+# List ALSA devices (useful for USB mics/cards)
+aplay -l      # Playback devices
+arecord -l    # Recording devices
 
-# Test microphone
+# Test microphone (ALSA utility still works for USB mics)
 arecord -f cd -d 5 test.wav
 aplay test.wav
 
-# Test speakers
-speaker-test -c 2 -t wav
+# PulseAudio: list sinks/sources and control profiles
+pactl list sinks short
+pactl list sources short
+
+# Set card profile to headset/HFP (replace <card> with your card name)
+pactl set-card-profile <card> headset_head_unit
+
+# Play a file via PulseAudio default sink
+paplay test.wav
 ```
 
 ### GPIO Wiring (Optional)
@@ -208,7 +215,7 @@ speaker-test -c 2 -t wav
 - **Raspberry Pi OS** - Bullseye or Bookworm (latest stable)
 - **Python** - 3.9 or higher
 - **BlueZ** - 5.55 or higher (Bluetooth stack)
-- **PulseAudio/ALSA** - Audio system
+- **PulseAudio** (or PipeWire) - Audio server for routing and managing sinks/sources
 
 ## 🚀 Quick Start
 
@@ -344,7 +351,7 @@ rpi-handsfree/
 │   ├── main.py              # Main application
 │   ├── config.py            # Configuration management
 │   ├── bluetooth_manager.py # Bluetooth/BlueZ interface
-│   ├── audio_manager.py     # Audio I/O (ALSA)
+│   ├── audio_manager.py     # Audio I/O (PulseAudio)
 │   ├── call_manager.py      # HFP call control
 │   └── gpio_controller.py   # GPIO buttons/LEDs
 ├── system/
@@ -352,8 +359,8 @@ rpi-handsfree/
 │   │   └── main.conf        # BlueZ configuration
 │   ├── systemd/
 │   │   └── rpi-handsfree.service
-│   └── alsa/
-│       └── asound.conf      # ALSA configuration
+│   └── pulse/
+│       └── default.pa       # PulseAudio/pipewire configuration snippets
 ├── tests/
 │   ├── test_bluetooth.py
 │   ├── test_audio.py
@@ -429,6 +436,7 @@ python -m pytest tests/
 - [Raspberry Pi GPIO](https://www.raspberrypi.org/documentation/hardware/raspberrypi/)
 - [ALSA Project](https://www.alsa-project.org/)
 - [PulseAudio Documentation](https://www.freedesktop.org/wiki/Software/PulseAudio/)
+- [PipeWire](https://pipewire.org/) (optional replacement for PulseAudio)
 
 ## 📝 License
 

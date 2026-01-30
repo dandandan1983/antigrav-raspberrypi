@@ -137,7 +137,7 @@ graph TB
     Main <--> Audio[Аудио менеджер]
     Main <--> Call[Менеджер вызовов]
     Main <--> GPIO[GPIO контроллер]
-    Audio <--> PA[PulseAudio/ALSA]
+    Audio <--> PA[PulseAudio]
     PA <--> Mic[🎤 Микрофон]
     PA <--> Speaker[🔊 Динамики]
     GPIO <--> Buttons[Физические кнопки]
@@ -162,7 +162,7 @@ graph TB
 ```python
 """
 Управление аудио потоками
-- Настройка ALSA/PulseAudio
+- Настройка PulseAudio
 - Захват с микрофона
 - Воспроизведение на динамики
 - Маршрутизация аудио потоков
@@ -268,25 +268,13 @@ sequenceDiagram
 
 ### 5.2. Аудио конфигурация
 
-#### ALSA настройки
-```ini
-# /etc/asound.conf или ~/.asoundrc
-pcm.!default {
-    type plug
-    slave.pcm "headset"
-}
-
-pcm.headset {
-    type bluealsa
-    device "XX:XX:XX:XX:XX:XX"
-    profile "sco"
-}
-```
-
 #### PulseAudio настройки
 ```bash
-# Автоматическое переключение на Bluetooth HSP/HFP профиль
+# PulseAudio: автоматическое переключение на Bluetooth HSP/HFP профиль
+pactl list cards
 pactl set-card-profile <card-id> headset_head_unit
+
+# Для PipeWire + pipewire-pulse используйте аналогичные команды через pw-cli/pactl
 ```
 
 ### 5.3. GPIO схема подключения
@@ -397,6 +385,8 @@ sudo apt install -y bluez bluez-tools python3-bluez
 
 # Аудио
 sudo apt install -y pulseaudio pulseaudio-module-bluetooth alsa-utils
+# Или, при использовании PipeWire вместо PulseAudio:
+# sudo apt install -y pipewire pipewire-pulse
 
 # Python и библиотеки
 sudo apt install -y python3 python3-pip python3-dev python3-venv
@@ -416,7 +406,7 @@ PyGObject>=3.40.0
 dbus-python>=1.2.18
 RPi.GPIO>=0.7.1
 gpiozero>=1.6.2
-pyalsaaudio>=0.9.0
+pulsectl>=20.0.0
 pydbus>=0.6.0
 ```
 
