@@ -32,6 +32,16 @@ def configure_logging(cfg: Optional[object] = None) -> None:
 
     if log_file:
         try:
+            # ensure parent dir exists if possible
+            import os
+            parent = os.path.dirname(log_file)
+            if parent and not os.path.isdir(parent):
+                try:
+                    os.makedirs(parent, exist_ok=True)
+                except Exception:
+                    # will be caught by FileHandler creation below
+                    pass
+
             fh = logging.FileHandler(log_file)
             fh.setFormatter(formatter)
             root.addHandler(fh)

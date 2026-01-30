@@ -37,6 +37,11 @@ class GPIOController:
             return
         self.logger.info("GPIOController initializing pins")
         try:
+            # suppress warnings about channels already in use
+            try:
+                GPIO.setwarnings(False)
+            except Exception:
+                pass
             GPIO.setmode(GPIO.BCM)
             # Load pin numbers from config
             try:
