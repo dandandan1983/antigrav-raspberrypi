@@ -9,7 +9,7 @@ RPi.GPIO>=0.7.1
 gpiozero>=1.6.2
 
 # Audio libraries
-pyalsaaudio>=0.9.0
+pulsectl>=22.3.0  # Added for PulseAudio control
 
 # Audio processing and enhancement
 numpy>=1.21.0

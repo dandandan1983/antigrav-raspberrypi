@@ -21,6 +21,7 @@ import time
 import numpy as np
 import os
 import socket
+from pulsectl import Pulse, PulseLoopStop
 
 # Import audio enhancement modules
 try:
@@ -48,7 +49,8 @@ class AudioManager:
     SOL_SCO = 17
     SCO_OPTIONS = 1
     
-    def __init__(self, sample_rate: int = 16000, channels: int = 1, 
+    def __init__(self, pulse_sink: str = 'hfp_sink', pulse_source: str = 'hfp_source',
+                 sample_rate: int = 16000, channels: int = 1, 
                  buffer_size: int = 1024,
                  capture_device: str = 'default',
                  playback_device: str = 'default',
@@ -65,6 +67,8 @@ class AudioManager:
         Initialize Audio Manager.
         
         Args:
+            pulse_sink: PulseAudio sink name (e.g., 'hfp_sink')
+            pulse_source: PulseAudio source name (e.g., 'hfp_source')
             sample_rate: Audio sample rate in Hz (8000 or 16000 for voice)
             channels: Number of audio channels (1 = mono, 2 = stereo)
             buffer_size: Audio buffer size in frames
@@ -87,6 +91,9 @@ class AudioManager:
         self.playback_device_name = playback_device
         self.state = AudioState.IDLE
         self.aec_tail_ms = aec_tail_ms
+        self.pulse_sink = pulse_sink
+        self.pulse_source = pulse_source
+        self.pulse = Pulse('AudioManager')
         
         # Audio devices
         self.capture_device: Optional[alsaaudio.PCM] = None
@@ -590,6 +597,7 @@ class AudioManager:
                 self.playback_device.close()
                 self.playback_device = None
         
+        self.pulse.close()
         logging.info("AudioManager cleaned up")
 
 

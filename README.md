@@ -6,7 +6,7 @@ A full-featured Bluetooth hands-free headset implementation using Raspberry Pi 4
 
 - ✅ **Bluetooth Connectivity** - HSP/HFP profile support via BlueZ
 - ✅ **Call Management** - Answer, reject, and hang up calls via HFP AT commands
-- ✅ **Audio I/O** - Microphone capture and speaker output using ALSA
+- ✅ **Audio I/O** - Microphone capture and speaker output using PulseAudio
 - ✅ **Volume Control** - Bidirectional volume synchronization with phone
 - ✅ **GPIO Controls** - Physical buttons for call and volume control
 - ✅ **LED Indicators** - Visual feedback for connection and call status
