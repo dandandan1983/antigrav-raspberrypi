@@ -10,6 +10,15 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip
+# On Debian/Ubuntu (Raspbian) install system packages required for Bluetooth
+# and for building some Python bindings — this avoids building PyBluez from pip
+if command -v apt-get >/dev/null 2>&1; then
+    echo "Installing system packages for Bluetooth and build dependencies"
+    sudo apt-get update
+    sudo apt-get install -y python3-bluez libbluetooth-dev bluetooth bluez \
+        build-essential pkg-config libglib2.0-dev || true
+fi
+
 if [ -f "$ROOT_DIR/requirements.txt" ]; then
     pip install -r "$ROOT_DIR/requirements.txt"
 fi

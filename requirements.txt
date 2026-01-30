@@ -7,7 +7,10 @@ dbus-python==1.2.18
 pulsectl==23.5.0
 
 # Bluetooth helpers
-pybluez==0.23
+
+# Note: On Debian/Raspbian install `python3-bluez` via apt to provide system
+# Bluetooth bindings. Building PyBluez via pip may fail on newer Python.
+# If you need the PyPI package, build dependencies must be installed.
 
 # GPIO
 RPi.GPIO==0.7.1
