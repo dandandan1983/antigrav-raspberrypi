@@ -11,6 +11,12 @@ except Exception:
     SystemBus = None
     GLib = None
 try:
+    import dbus
+    import dbus.service
+    import dbus.mainloop.glib
+except Exception:
+    dbus = None
+try:
     import bluetooth
     from bluetooth import BluetoothSocket, RFCOMM
 except Exception:
@@ -75,6 +81,73 @@ class BluetoothManager:
             except Exception:
                 self.logger.exception("Failed to run bluetoothctl fallback commands")
             return
+
+        # If dbus-python is available, register an automatic agent to accept pair confirmations
+        if dbus is not None:
+            try:
+                dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+                sysbus = dbus.SystemBus()
+                agent_path = '/org/bluez/rpi_handsfree_agent'
+
+                class AutoAgent(dbus.service.Object):
+                    def __init__(self, bus, path):
+                        super().__init__(bus, path)
+
+                    @dbus.service.method('org.bluez.Agent1', in_signature='o', out_signature='s')
+                    def RequestPinCode(self, device):
+                        return '0000'
+
+                    @dbus.service.method('org.bluez.Agent1', in_signature='o', out_signature='u')
+                    def RequestPasskey(self, device):
+                        return dbus.UInt32(0)
+
+                    @dbus.service.method('org.bluez.Agent1', in_signature='ou', out_signature='')
+                    def RequestConfirmation(self, device, passkey):
+                        # Auto-accept confirmation
+                        self._log_accept(device, passkey)
+                        return
+
+                    @dbus.service.method('org.bluez.Agent1', in_signature='o', out_signature='')
+                    def RequestAuthorization(self, device):
+                        # Auto-authorize
+                        return
+
+                    @dbus.service.method('org.bluez.Agent1', in_signature='os', out_signature='')
+                    def AuthorizeService(self, device, uuid):
+                        # Auto-authorize service
+                        return
+
+                    @dbus.service.method('org.bluez.Agent1', in_signature='', out_signature='')
+                    def Cancel(self):
+                        return
+
+                    def _log_accept(self, device, passkey):
+                        try:
+                            logging.getLogger('BluetoothManager').info('Auto-accepted pairing for %s passkey=%s', device, passkey)
+                        except Exception:
+                            pass
+
+                agent = AutoAgent(sysbus, agent_path)
+                mgr = dbus.Interface(sysbus.get_object('org.bluez', '/org/bluez'), 'org.bluez.AgentManager1')
+                try:
+                    mgr.RegisterAgent(agent_path, 'DisplayYesNo')
+                    mgr.RequestDefaultAgent(agent_path)
+                    self.logger.info('Auto agent registered for pairing confirmations')
+                except Exception:
+                    self.logger.exception('Failed to register DBus agent')
+
+                # ensure GLib mainloop runs so agent methods are served
+                try:
+                    if GLib is not None:
+                        loop = GLib.MainLoop()
+                        t = threading.Thread(target=loop.run, daemon=True)
+                        t.start()
+                        self._agent_loop = loop
+                        self._agent_thread = t
+                except Exception:
+                    self.logger.exception('Failed to start GLib main loop for agent')
+            except Exception:
+                self.logger.exception('Failed to setup auto agent via dbus-python')
 
         try:
             self._bus = SystemBus()
