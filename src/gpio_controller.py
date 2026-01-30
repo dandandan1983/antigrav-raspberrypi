@@ -24,6 +24,10 @@ class GPIOController:
         self._led_pins = {}
         self._blink_thread: Thread | None = None
         self._blink_stop = Event()
+        self._poll_thread: Thread | None = None
+        self._poll_stop = Event()
+        self._last_state = {}
+        self._debounce_ms = int(self.cfg.get("gpio", "debounce_time", fallback=200)) if hasattr(self.cfg, "get") else 200
         self._pattern = "idle"
         self._callbacks = {}
 
@@ -50,10 +54,30 @@ class GPIOController:
                 self.logger.exception("Invalid GPIO configuration; using defaults")
 
             # Configure buttons
+            use_polling = False
             for name, pin in self._btn_pins.items():
                 GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-                # Callback with debounce via bouncetime
-                GPIO.add_event_detect(pin, GPIO.FALLING, callback=self._make_button_handler(name), bouncetime=250)
+                try:
+                    # Callback with debounce via bouncetime
+                    GPIO.add_event_detect(pin, GPIO.FALLING, callback=self._make_button_handler(name), bouncetime=self._debounce_ms)
+                except RuntimeError:
+                    # Some platforms or configurations may not support edge detection.
+                    self.logger.warning("Edge detection unavailable for pin %s; will use polling fallback", pin)
+                    use_polling = True
+                except Exception:
+                    self.logger.exception("Failed to add event detect for pin %s", pin)
+                    use_polling = True
+
+            if use_polling:
+                # initialize last states
+                for name, pin in self._btn_pins.items():
+                    try:
+                        self._last_state[name] = GPIO.input(pin)
+                    except Exception:
+                        self._last_state[name] = 1
+                self._poll_stop.clear()
+                self._poll_thread = Thread(target=self._poll_loop, daemon=True)
+                self._poll_thread.start()
 
             # Configure LEDs as outputs and turn off
             for pin in self._led_pins.values():
@@ -72,6 +96,10 @@ class GPIOController:
         self._blink_stop.set()
         if self._blink_thread:
             self._blink_thread.join(timeout=1.0)
+        # stop polling thread if running
+        self._poll_stop.set()
+        if self._poll_thread:
+            self._poll_thread.join(timeout=1.0)
         if self._available:
             try:
                 GPIO.cleanup()
@@ -89,6 +117,33 @@ class GPIOController:
                     self.logger.exception("Button callback error for %s", name)
 
         return handler
+
+    def _poll_loop(self):
+        # Poll inputs and detect falling edges with debounce
+        import time
+        last_press_time = {name: 0 for name in self._btn_pins}
+        interval = max(0.02, self._debounce_ms / 1000.0 / 2)
+        while not self._poll_stop.is_set():
+            for name, pin in self._btn_pins.items():
+                try:
+                    state = GPIO.input(pin)
+                except Exception:
+                    state = 1
+                prev = self._last_state.get(name, 1)
+                # detect falling edge (high->low)
+                if prev == 1 and state == 0:
+                    now = time.time()
+                    if (now - last_press_time[name]) * 1000.0 >= self._debounce_ms:
+                        last_press_time[name] = now
+                        self.logger.info("(poll) Button %s pressed (pin=%s)", name, pin)
+                        cb = self._callbacks.get(name)
+                        if cb:
+                            try:
+                                cb()
+                            except Exception:
+                                self.logger.exception("Button callback error for %s", name)
+                self._last_state[name] = state
+            time.sleep(interval)
 
     def on_button(self, name: str, callback):
         """Register a callback for a button name: `answer`, `reject`, `vol_up`, `vol_down`."""
