@@ -1,0 +1,14 @@
+[Unit]
+Description=Raspberry Pi Hands-Free Headset
+After=bluetooth.target sound.target
+Requires=bluetooth.target
+
+[Service]
+Type=simple
+User=dan
+ExecStart=/home/dan/antigrav-raspberrypi/venv/bin/python /home/dan/antigrav-raspberrypi/src/main.py
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

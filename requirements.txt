@@ -1,0 +1,23 @@
+
+# Core DBus / BlueZ
+pydbus==0.6.0
+dbus-python==1.2.18
+
+# PulseAudio control
+pulsectl==23.5.0
+
+# Bluetooth helpers
+pybluez==0.23
+
+# GPIO
+RPi.GPIO==0.7.1
+gpiozero==1.6.2
+
+# Testing
+pytest==7.3.1
+mock==5.0.1
+
+# Audio processing (optional)
+webrtcvad==2.0.10
+numpy==1.25.0
+
