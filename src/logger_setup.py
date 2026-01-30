@@ -33,17 +33,38 @@ def configure_logging(cfg: Optional[object] = None) -> None:
     if log_file:
         try:
             # ensure parent dir exists if possible
-            import os
-            parent = os.path.dirname(log_file)
-            if parent and not os.path.isdir(parent):
+            parent = Path(log_file).parent
+            if parent and not parent.exists():
                 try:
-                    os.makedirs(parent, exist_ok=True)
+                    parent.mkdir(parents=True, exist_ok=True)
                 except Exception:
                     # will be caught by FileHandler creation below
                     pass
 
-            fh = logging.FileHandler(log_file)
+            fh = logging.FileHandler(str(log_file))
             fh.setFormatter(formatter)
             root.addHandler(fh)
         except Exception:
             root.warning("Unable to create log file handler: %s", log_file)
+            # attempt to fallback to a writable location, preferably misc.state_dir
+            try:
+                alt_dir = None
+                if cfg is not None and hasattr(cfg, "get"):
+                    try:
+                        alt_dir = cfg.get("misc", "state_dir", fallback=None)
+                    except Exception:
+                        alt_dir = None
+                if not alt_dir:
+                    alt_dir = str(Path.home() / ".local" / "rpi-handsfree")
+                alt_path = Path(alt_dir)
+                alt_path.mkdir(parents=True, exist_ok=True)
+                alt_log = alt_path / Path(log_file).name
+                try:
+                    fh2 = logging.FileHandler(str(alt_log))
+                    fh2.setFormatter(formatter)
+                    root.addHandler(fh2)
+                    root.warning("Falling back to log file: %s", str(alt_log))
+                except Exception:
+                    root.warning("Unable to create fallback log file handler: %s", str(alt_log))
+            except Exception:
+                root.warning("No writable log directory available; continuing without file logging")
