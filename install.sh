@@ -4,8 +4,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$ROOT_DIR/venv"
 
-echo "Creating virtual environment at $VENV_DIR"
-python3 -m venv "$VENV_DIR"
+if [ ! -d "$VENV_DIR" ]; then
+    echo "Creating virtual environment at $VENV_DIR"
+    python3 -m venv "$VENV_DIR"
+fi
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip
 if [ -f "$ROOT_DIR/requirements.txt" ]; then
