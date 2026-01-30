@@ -69,6 +69,13 @@ sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$INSTALL_DIR"
 sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$LOG_DIR" || true
 sudo chown -R "$SERVICE_USER":"$SERVICE_USER" "$STATE_DIR" || true
 
+# Ensure log file exists and has correct ownership/permissions
+if [ -n "$LOG_FILE" ]; then
+    sudo touch "$LOG_FILE" || true
+    sudo chown "$SERVICE_USER":"$SERVICE_USER" "$LOG_FILE" || true
+    sudo chmod 644 "$LOG_FILE" || true
+fi
+
 echo "Service user and file ownership configured for $SERVICE_USER"
 
 echo "Install complete. To run manually:"
