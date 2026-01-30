@@ -53,7 +53,27 @@ class BluetoothManager:
     def start(self):
         self.logger.info("BluetoothManager starting")
         if SystemBus is None:
-            self.logger.info("pydbus not available; running in stub mode")
+            self.logger.info("pydbus not available; attempting system fallback using bluetoothctl")
+            # Try to power on and make adapter discoverable using bluetoothctl as a fallback
+            try:
+                import subprocess
+                cmds = [
+                    "power on",
+                    "agent NoInputNoOutput",
+                    "default-agent",
+                    "pairable on",
+                    "discoverable on",
+                ]
+                proc = subprocess.Popen(["bluetoothctl"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                out, err = proc.communicate("\n".join(cmds) + "\n")
+                self.logger.debug("bluetoothctl output: %s", out)
+                if err:
+                    self.logger.debug("bluetoothctl errors: %s", err)
+                self.logger.info("Bluetooth adapter attempted to be powered and set discoverable via bluetoothctl")
+            except FileNotFoundError:
+                self.logger.warning("bluetoothctl not found; cannot set adapter discoverable via CLI")
+            except Exception:
+                self.logger.exception("Failed to run bluetoothctl fallback commands")
             return
 
         try:
