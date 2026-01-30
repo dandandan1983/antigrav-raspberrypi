@@ -17,7 +17,7 @@ if command -v apt-get >/dev/null 2>&1; then
     sudo apt-get update
     sudo apt-get install -y python3-bluez libbluetooth-dev bluetooth bluez \
         build-essential pkg-config libglib2.0-dev python3-dev libatlas-base-dev \
-        libblas-dev gfortran || true
+        libblas-dev gfortran python3-numpy || true
 fi
 
 if [ -f "$ROOT_DIR/requirements.txt" ]; then

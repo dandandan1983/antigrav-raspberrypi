@@ -22,5 +22,6 @@ mock==5.0.1
 
 # Audio processing (optional)
 webrtcvad==2.0.10
-numpy==1.25.0
+# Note: On Raspberry Pi it's recommended to install `python3-numpy` via apt
+# to avoid building numpy from source for the local architecture.
 
