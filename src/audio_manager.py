@@ -12,7 +12,6 @@ It handles:
 """
 
 import logging
-import alsaaudio
 import subprocess
 from typing import Optional, Callable
 from enum import Enum
