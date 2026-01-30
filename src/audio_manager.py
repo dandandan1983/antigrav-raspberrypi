@@ -587,15 +587,6 @@ class AudioManager:
         # Disconnect SCO
         self.disconnect_sco()
         
-        with self._audio_lock:
-            if self.capture_device:
-                self.capture_device.close()
-                self.capture_device = None
-            
-            if self.playback_device:
-                self.playback_device.close()
-                self.playback_device = None
-        
         self.pulse.close()
         logging.info("AudioManager cleaned up")
 

@@ -115,13 +115,13 @@ class Config:
     
     @property
     def audio_capture_device(self) -> str:
-        """Audio capture device name (ALSA)."""
-        return self.get('audio', 'capture_device', 'default')
+        """Audio capture device name (PulseAudio)."""
+        return self.get("audio", "capture_device", fallback="default")
     
     @property
     def audio_playback_device(self) -> str:
-        """Audio playback device name (ALSA)."""
-        return self.get('audio', 'playback_device', 'default')
+        """Audio playback device name (PulseAudio)."""
+        return self.get("audio", "playback_device", fallback="default")
     
     @property
     def audio_aec_tail_ms(self) -> int:

@@ -43,26 +43,18 @@ sudo apt install -y \
 echo ""
 echo "Step 3: Installing PipeWire and audio packages..."
 sudo apt install -y \
-    pipewire \
-    pipewire-audio-client-libraries \
     libspa-0.2-bluetooth \
-    wireplumber \
-    alsa-utils \
-    libasound2-dev \
-    libspeexdsp-dev \
-    swig \
-    libffi-dev \
-    pulseaudio-utils
+    pulseaudio \
+    pulseaudio-utils \
+    libpulse-dev
 
-# Enable PipeWire services
-echo "Enabling PipeWire services..."
-systemctl --user enable pipewire pipewire-pulse wireplumber
-systemctl --user start pipewire pipewire-pulse wireplumber
+# Enable PulseAudio services
+systemctl --user enable pulseaudio
+systemctl --user start pulseaudio
 
 # Disable conflicting services
-echo "Disabling conflicting services (PulseAudio and oFono)..."
-sudo systemctl stop pulseaudio ofono || true
-sudo systemctl disable pulseaudio ofono || true
+sudo systemctl stop ofono || true
+sudo systemctl disable ofono || true
 
 echo ""
 echo "Step 4: Installing Python and development tools..."
@@ -106,44 +98,21 @@ echo "Step 9: Configuring audio..."
 # Add user to audio group
 sudo usermod -a -G audio,bluetooth,gpio $USER
 
-# Configure PipeWire for Bluetooth HFP
-if [ ! -d ~/.config/pipewire ]; then
-    mkdir -p ~/.config/pipewire
+# Configure PulseAudio for Bluetooth HFP
+if [ ! -d ~/.config/pulse ]; then
+    mkdir -p ~/.config/pulse
 fi
 
-cat > ~/.config/pipewire/pipewire.conf << EOF
-context.properties = {
-    default.clock.rate          = 48000
-    default.clock.allowed-rates = [ 48000 ]
-    default.clock.quantum       = 1024
-    default.clock.min-quantum   = 32
-    default.clock.max-quantum   = 2048
-    default.video.width         = 640
-    default.video.height        = 480
-    default.video.rate.num      = 25
-    default.video.rate.denom    = 1
-    default.quantum             = 1024
-    default.rate                = 48000
-    default.channels            = 2
-    default.position            = [ FL FR ]
-}
+cat > ~/.config/pulse/default.pa << EOF
+# PulseAudio configuration for HFP
+load-module module-bluetooth-policy
+load-module module-bluetooth-discover
+load-module module-native-protocol-unix
 EOF
 
-# Ensure the media-session.d directory exists
-if [ ! -d ~/.config/pipewire/media-session.d ]; then
-    mkdir -p ~/.config/pipewire/media-session.d
-fi
-
-cat > ~/.config/pipewire/media-session.d/bluez-monitor.conf << EOF
-bluez-monitor.properties = {
-    properties = {
-        bluez5.enable-hfp = true
-        bluez5.enable-hsp = false
-        bluez5.enable-a2dp = true
-    }
-}
-EOF
-
+# Restart PulseAudio to apply changes
+pulseaudio --kill || true
+pulseaudio --start
 
 echo ""
 echo "Step 10: Setting up systemd service..."
