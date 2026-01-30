@@ -51,7 +51,8 @@ sudo apt install -y \
     libasound2-dev \
     libspeexdsp-dev \
     swig \
-    libffi-dev
+    libffi-dev \
+    pulseaudio-utils
 
 # Enable PipeWire services
 echo "Enabling PipeWire services..."
