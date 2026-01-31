@@ -613,3 +613,51 @@ python3 main.py --debug
 
 > [!IMPORTANT]
 > Это техническое задание является отправной точкой проекта. В процессе разработки возможны изменения и дополнения в зависимости от результатов тестирования и требований пользователя.
+
+
+
+# включить маршруты DAC → mixout
+amixer -c 2 sset 'Mixout Left DAC Left' on
+amixer -c 2 sset 'Mixout Right DAC Right' on
+
+# включить основные микси/выходы
+amixer -c 2 sset 'Mixout Left Mixin Left' on
+amixer -c 2 sset 'Mixout Right Mixin Right' on
+
+# включить Lineout и Headphone (максимум)
+amixer -c 2 sset 'Lineout' 63 unmute
+amixer -c 2 sset 'Headphone' 63 unmute
+
+# иногда полезно включить zero-cross / jack переключатели
+amixer -c 2 sset 'Headphone ZC' on
+amixer -c 2 sset 'HP Jack' on
+
+
+
+
+
+
+# включить микрофоны и их микс-ин
+amixer -c 2 sset 'Mic 1' 4 unmute
+amixer -c 2 sset 'Mic 2' 4 unmute
+amixer -c 2 sset 'Mixin Left Mic 1' on
+amixer -c 2 sset 'Mixin Right Mic 1' on
+amixer -c 2 sset 'Mixin Left Mic 2' on
+amixer -c 2 sset 'Mixin Right Mic 2' on
+
+# включить ADC (если есть pswitch)
+amixer -c 2 sset 'ADC' 111 unmute || amixer -c 2 sset 'ADC' on
+
+
+
+# Звук вернулся
+amixer -c 2 cset name='DAC Left Source MUX' 'DAI Input Left'
+amixer -c 2 cset name='DAC Right Source MUX' 'DAI Input Right'
+amixer -c 2 sget 'DAC Left Source MUX'
+amixer -c 2 sget 'DAC Right Source MUX'
+
+
+
+
+
+sudo alsactl store
