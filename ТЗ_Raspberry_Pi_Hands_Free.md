@@ -658,6 +658,10 @@ amixer -c 2 sget 'DAC Right Source MUX'
 
 
 
+# Сделать физический микрофон (alsa_input.platform-soc_sound.stereo-fallback) источником по умолчанию
+pactl set-default-source alsa_input.platform-soc_sound.stereo-fallback
 
+# Перенести текущий source-output (98 в вашем выводе) на физический микрофон
+pactl move-source-output 98 alsa_input.platform-soc_sound.stereo-fallback
 
 sudo alsactl store

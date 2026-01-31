@@ -89,11 +89,69 @@ class AudioManager:
             return False
 
     def start_sco(self):
-        """Hook called when a SCO/HFP call should start. This attempts to set
-        the BlueZ card to HFP profile and ensure default sink/source are correct.
+        """Hook called when a SCO/HFP call should start.
+
+        This attempts to set the BlueZ card to the HFP/HSP profile and then
+        route any active BlueZ `source-output` streams (phone SCO streams)
+        onto the physical microphone source so the remote party hears the
+        Pi microphone instead of a local monitor/loopback.
         """
         self.logger.debug("start_sco requested")
-        return self.set_hfp_profile("headset_head_unit")
+        ok = self.set_hfp_profile("headset_head_unit")
+
+        # Ensure pulsectl connection
+        if pulsectl is None:
+            self.logger.debug("pulsectl not available, skipping SCO routing")
+            return ok
+        if not self.pulse:
+            try:
+                self.pulse = pulsectl.Pulse("rpi-handsfree")
+            except Exception:
+                self.logger.exception("Failed to connect to PulseAudio for SCO routing")
+                return ok
+
+        try:
+            capture_cfg = None
+            try:
+                capture_cfg = self.cfg.get("audio", "capture_device", fallback=None)
+            except Exception:
+                capture_cfg = None
+
+            # Find a sensible physical microphone source. Preference order:
+            #  - explicit name from config (substring match)
+            #  - PipeWire/ALSA source that mentions the codec/board (platform-soc_sound or Zero)
+            mic = None
+            for s in self.pulse.source_list():
+                name = (s.name or "")
+                if capture_cfg and capture_cfg != "default" and capture_cfg in name:
+                    mic = s
+                    break
+                if "platform-soc_sound" in name or "Zero" in name or "alsa_input" in name:
+                    mic = s
+                    break
+
+            if not mic:
+                self.logger.warning("Physical mic source not found for SCO routing")
+                return ok
+
+            # Move all bluez-related source-outputs (SCO streams) to the physical mic
+            for so in self.pulse.source_output_list():
+                try:
+                    proplist = getattr(so, "proplist", {}) or {}
+                    is_bluez = bool(proplist.get("api.bluez5.address") or proplist.get("media.role") == "phone")
+                    if not is_bluez:
+                        continue
+                    try:
+                        self.pulse.source_output_move(so.index, mic.index)
+                        self.logger.info("Moved source-output %s -> %s", so.index, mic.name)
+                    except Exception:
+                        self.logger.exception("Failed to move source-output %s", so.index)
+                except Exception:
+                    continue
+        except Exception:
+            self.logger.exception("Error while routing SCO source-outputs")
+
+        return ok
 
     def stop_sco(self):
         self.logger.debug("stop_sco requested")
