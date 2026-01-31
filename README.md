@@ -272,6 +272,27 @@ source venv/bin/activate
 python3 src/main.py
 ```
 
+### About `main.py`
+
+- **Что это:** `main.py` — точка входа приложения. Он создаёт `MainApp`, загружает конфигурацию и логирование, инстанцирует `BluetoothManager`, `AudioManager`, `CallManager` и `GPIOController`, затем запускает их (см. `src/main.py`).
+
+- **Когда запускать вручную:** при отладке или когда нужно запустить приложение немедленно в интерактивной сессии:
+```bash
+python3 src/main.py
+```
+
+- **Когда не нужно запускать вручную:** в продакшене на Raspberry Pi приложение обычно запускает systemd‑сервис автоматически при загрузке. Посмотрите `system/rpi-handsfree.service` — там указан `ExecStart`, который запускает `main.py`.
+
+- **Как проверить/управлять сервисом (systemd):**
+```bash
+sudo systemctl start rpi-handsfree.service
+sudo systemctl stop rpi-handsfree.service
+sudo systemctl status rpi-handsfree.service
+sudo journalctl -u rpi-handsfree.service -f
+```
+
+- **Совет:** откройте `system/rpi-handsfree.service`, чтобы увидеть точную команду запуска (`ExecStart`), рабочую директорию и переменные окружения, которые используются при автозапуске.
+
 ### Making Calls
 
 1. **Incoming Call** - LED will blink rapidly
@@ -467,4 +488,58 @@ python3 -m venv --system-site-packages venv
 source venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
+```
+
+### Решение проблем со звуком и микрофоном
+
+```
+# включить маршруты DAC → mixout
+amixer -c 2 sset 'Mixout Left DAC Left' on
+amixer -c 2 sset 'Mixout Right DAC Right' on
+
+# включить основные микси/выходы
+amixer -c 2 sset 'Mixout Left Mixin Left' on
+amixer -c 2 sset 'Mixout Right Mixin Right' on
+
+# включить Lineout и Headphone (максимум)
+amixer -c 2 sset 'Lineout' 63 unmute
+amixer -c 2 sset 'Headphone' 63 unmute
+
+# иногда полезно включить zero-cross / jack переключатели
+amixer -c 2 sset 'Headphone ZC' on
+amixer -c 2 sset 'HP Jack' on
+
+
+
+
+
+
+# включить микрофоны и их микс-ин
+amixer -c 2 sset 'Mic 1' 4 unmute
+amixer -c 2 sset 'Mic 2' 4 unmute
+amixer -c 2 sset 'Mixin Left Mic 1' on
+amixer -c 2 sset 'Mixin Right Mic 1' on
+amixer -c 2 sset 'Mixin Left Mic 2' on
+amixer -c 2 sset 'Mixin Right Mic 2' on
+
+# включить ADC (если есть pswitch)
+amixer -c 2 sset 'ADC' 111 unmute || amixer -c 2 sset 'ADC' on
+
+
+
+# Звук вернулся
+amixer -c 2 cset name='DAC Left Source MUX' 'DAI Input Left'
+amixer -c 2 cset name='DAC Right Source MUX' 'DAI Input Right'
+amixer -c 2 sget 'DAC Left Source MUX'
+amixer -c 2 sget 'DAC Right Source MUX'
+
+
+
+# Сделать физический микрофон (alsa_input.platform-soc_sound.stereo-fallback) источником по умолчанию
+pactl set-default-source alsa_input.platform-soc_sound.stereo-fallback
+
+# Перенести текущий source-output (98 в вашем выводе) на физический микрофон
+pactl move-source-output 98 alsa_input.platform-soc_sound.stereo-fallback
+
+sudo alsactl store
 ```
