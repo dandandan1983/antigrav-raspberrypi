@@ -215,6 +215,49 @@ graph TB
 """
 ```
 
+#### Модуль 7: Logger Setup (`logger_setup.py`)
+```
+"""
+Настройка логирования приложения
+- Инициализация логгеров и обработчиков (файл/консоль)
+- Форматы и уровень логирования
+- Ротация и права доступа на лог-файлы
+"""
+```
+
+#### Модуль 8: Тесты
+```
+"""
+Набор модульных тестов в каталоге `tests/` покрывает парсинг AT-команд,
+аудио и логику ответа на звонок. CI/тестовый пайплайн рекомендуется.
+"""
+```
+
+Примечание по конфигурации: файл `config.ini` включает параметр `state_dir` —
+директорию для хранения состояния и временных файлов (по умолчанию `/var/lib/rpi-handsfree`).
+
+## Implementation status
+
+The repository contains a working, pragmatic implementation focused on core hands-free call handling.
+
+- Implemented:
+  - Basic Bluetooth adapter initialization and discoverable mode via BlueZ (using `pydbus` or `bluetoothctl` fallback) (`bluetooth_manager.py`).
+  - RFCOMM reader and AT-line parsing for HFP/HSP events (RING, +CIEV/+CIND, +CLCC, +VGS/+VGM) and callback dispatching.
+  - Call control: `CallManager` implements `incoming`, `answer`, and `hangup` using AT commands (`ATA`, `AT+CHUP`).
+  - Audio routing with PulseAudio (`pulsectl`) including setting BlueZ card profile to `headset_head_unit` and moving SCO source-outputs to a physical mic (`audio_manager.py`).
+  - GPIO button handling and LED patterns with debouncing and polling fallback (`gpio_controller.py`).
+  - Logging configuration with file/console handlers and a fallback writable state directory (`logger_setup.py`).
+  - Persistent local state (volume) stored under `misc.state_dir` (`audio_manager.py`).
+  - Unit tests in `tests/` covering AT parsing and basic call logic.
+
+- Partially implemented / planned (not fully automatic or production hardened):
+  - Automatic reconnect logic (config contains `reconnect_*` keys but reconnect algorithm is not implemented in `bluetooth_manager.py`).
+  - Advanced audio preprocessing: AEC/AGC/noise-reduction flags exist in `config.ini` but audio preprocessing pipeline is not implemented in `audio_manager.py`.
+  - Secure storage of Bluetooth pairing keys (not implemented); pairing relies on BlueZ and system agent.
+  - Full A2DP usage switching and simultaneous A2DP/HFP management is not fully implemented; `audio_manager` can set profiles but automatic switching logic is limited.
+
+This ТЗ has been updated to reflect the current implementation. For feature requests (AEC, AGC, encrypted key storage, robust auto-reconnect), consider them as next milestones.
+
 ### 4.3. Взаимодействие компонентов
 
 ```mermaid

@@ -240,6 +240,9 @@ The installation script will:
 - Set up systemd service
 - Configure permissions
 
+Note: `install.sh` reads the `state_dir` value from `config.ini` (default `/var/lib/rpi-handsfree`).
+Ensure `config.ini` contains a valid `state_dir` path before running the installer.
+
 ### 3. Reboot
 
 ```bash
@@ -271,6 +274,41 @@ cd rpi-handsfree
 source venv/bin/activate
 python3 src/main.py
 ```
+
+## Project layout
+
+- `src/` — application modules: `audio_manager.py`, `bluetooth_manager.py`, `call_manager.py`, `config.py`, `gpio_controller.py`, `logger_setup.py`, `main.py`
+- `system/` — systemd unit: `rpi-handsfree.service`
+- `config.ini` — runtime configuration (includes `state_dir` and `log_file`)
+- `install.sh` — installer and setup helper
+- `tests/` — unit tests used for CI and local verification
+
+## Implementation status
+
+Implemented components (current repository):
+- **BluetoothManager**: BlueZ DBus integration with safe fallbacks; RFCOMM AT parsing and event dispatch (`src/bluetooth_manager.py`).
+- **CallManager**: Incoming/answer/hangup flow using AT commands (`src/call_manager.py`).
+- **AudioManager**: PulseAudio integration for setting HFP/HSP profiles and SCO routing when `pulsectl` is available (`src/audio_manager.py`).
+- **GPIOController**: Button handling (interrupts or polling fallback) and LED patterns (`src/gpio_controller.py`).
+- **Logger & state**: `src/logger_setup.py` for logging; `audio_manager` persists volume under `misc.state_dir`.
+
+Limitations and TODOs:
+- Auto-reconnect logic (the `reconnect_*` config keys are present but not yet implemented in `BluetoothManager`).
+- Advanced audio preprocessing (AEC/AGC/noise reduction) are configuration placeholders — no DSP pipeline implemented yet.
+- Secure/encrypted storage for pairing keys is not provided by this application; BlueZ/system handles pairing persistence.
+
+## Running tests
+
+Create and activate the virtualenv then run pytest:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+pytest -q
+```
+
+Note: on non-RPi development machines some hardware-dependent modules (`RPi.GPIO`, `pulsectl`, `pydbus`) may be unavailable; the code runs in stub/fallback modes and tests focus on parsing and logic.
 
 ### About `main.py`
 
